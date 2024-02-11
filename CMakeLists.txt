@@ -1,20 +1,20 @@
 cmake_minimum_required(VERSION 3.12)
 project(harfbuzz)
 
-message(WARN "HarfBuzz has a Meson port and tries to migrate all the other build systems to it, please consider using it as we might remove our cmake port soon.")
+#message(WARN "HarfBuzz has a Meson port and tries to migrate all the other build systems to it, please consider using it as we might remove our cmake port soon.")
 
 ## Limit framework build to Xcode generator
-if (BUILD_FRAMEWORK)
-  # for a framework build on macOS, use:
-  # cmake -DBUILD_FRAMEWORK=ON -Bbuild -H. -GXcode && cmake --build build
-  if (NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
-    message(FATAL_ERROR
-      "You should use Xcode generator with BUILD_FRAMEWORK enabled")
-  endif ()
-  set (CMAKE_OSX_ARCHITECTURES "$(ARCHS_STANDARD_32_64_BIT)")
-  set (CMAKE_MACOSX_RPATH ON)
-  set (BUILD_SHARED_LIBS ON)
-endif ()
+#if (BUILD_FRAMEWORK)
+#  # for a framework build on macOS, use:
+#  # cmake -DBUILD_FRAMEWORK=ON -Bbuild -H. -GXcode && cmake --build build
+#  if (NOT "${CMAKE_GENERATOR}" STREQUAL "Xcode")
+#    message(FATAL_ERROR
+#      "You should use Xcode generator with BUILD_FRAMEWORK enabled")
+#  endif ()
+#  set (CMAKE_OSX_ARCHITECTURES "$(ARCHS_STANDARD_32_64_BIT)")
+#  set (CMAKE_MACOSX_RPATH ON)
+#  set (BUILD_SHARED_LIBS ON)
+#endif ()
 
 
 ## Disallow in-source builds, as CMake generated make files can collide with autotools ones
@@ -31,16 +31,38 @@ Before that, remove the files created by this failed run with"
   rm -rf CMakeCache.txt CMakeFiles")
 endif ()
 
+set(CPM_DOWNLOAD_LOCATION "${CMAKE_BINARY_DIR}/cmake/CPM.cmake")
+if(NOT (EXISTS ${CPM_DOWNLOAD_LOCATION}))
+  file(DOWNLOAD https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.38.3/CPM.cmake ${CPM_DOWNLOAD_LOCATION}
+    EXPECTED_HASH SHA256=cc155ce02e7945e7b8967ddfaff0b050e958a723ef7aad3766d368940cb15494)
+endif()
+include(${CPM_DOWNLOAD_LOCATION})
+
+CPMAddPackage(
+  NAME freetype
+  GITHUB_REPOSITORY GameDevDeps/freetype
+  GIT_TAG freetype/v2.13.2)
+
+CPMAddPackage(
+  NAME icu
+  GITHUB_REPOSITORY GameDevDeps/icu4c
+  GIT_TAG icu/release-73-2)
+
+find_package(freetype REQUIRED)
+find_package(icu REQUIRED)
 
 ## HarfBuzz build configurations
-option(HB_HAVE_FREETYPE "Enable freetype interop helpers" OFF)
+#option(HB_HAVE_FREETYPE "Enable freetype interop helpers" OFF)
+set(HB_HAVE_FREETYPE ON)
 option(HB_HAVE_GRAPHITE2 "Enable Graphite2 complementary shaper" OFF)
-option(HB_HAVE_GLIB "Enable glib unicode functions" OFF)
-option(HB_HAVE_ICU "Enable icu unicode functions" OFF)
-if (TARGET freetype)
-  set (HB_HAVE_FREETYPE ON)
-  add_definitions(-DHAVE_FREETYPE=1)
-endif ()
+#option(HB_HAVE_GLIB "Enable glib unicode functions" OFF)
+set(HB_HAVE_GLIB OFF)
+#option(HB_HAVE_ICU "Enable icu unicode functions" OFF)
+set(HB_HAVE_ICU ON)
+#if (TARGET freetype)
+#  set (HB_HAVE_FREETYPE ON)
+#  add_definitions(-DHAVE_FREETYPE=1)
+#endif ()
 if (APPLE)
   option(HB_HAVE_CORETEXT "Enable CoreText shaper backend on macOS" ON)
   set (CMAKE_MACOSX_RPATH ON)
@@ -50,24 +72,27 @@ if (WIN32)
   option(HB_HAVE_GDI "Enable GDI integration helpers on Windows" OFF)
   option(HB_HAVE_DIRECTWRITE "Enable DirectWrite shaper backend on Windows" OFF)
 endif ()
-option(HB_BUILD_UTILS "Build harfbuzz utils, needs cairo, freetype, and glib properly be installed" OFF)
-if (HB_BUILD_UTILS)
-  set (HB_HAVE_GLIB ON)
-  set (HB_HAVE_FREETYPE ON)
-endif ()
+#option(HB_BUILD_UTILS "Build harfbuzz utils, needs cairo, freetype, and glib properly be installed" OFF)
+set(HB_BUILD_UTILS OFF)
+#if (HB_BUILD_UTILS)
+#  set (HB_HAVE_GLIB ON)
+#  set (HB_HAVE_FREETYPE ON)
+#endif ()
 
 option(HB_BUILD_SUBSET "Build harfbuzz-subset" ON)
 
-option(HB_HAVE_GOBJECT "Enable GObject Bindings" OFF)
-if (HB_HAVE_GOBJECT)
-  set (HB_HAVE_GLIB ON)
-endif ()
+#option(HB_HAVE_GOBJECT "Enable GObject Bindings" OFF)
+set(HB_HAVE_GOBJECT OFF)
+#if (HB_HAVE_GOBJECT)
+#  set (HB_HAVE_GLIB ON)
+#endif ()
 
-option(HB_HAVE_INTROSPECTION "Enable building introspection (.gir/.typelib) files" OFF)
-if (HB_HAVE_INTROSPECTION)
-  set (HB_HAVE_GOBJECT ON)
-  set (HB_HAVE_GLIB ON)
-endif ()
+#option(HB_HAVE_INTROSPECTION "Enable building introspection (.gir/.typelib) files" OFF)
+set(HB_HAVE_INTROSPECTION OFF)
+#if (HB_HAVE_INTROSPECTION)
+#  set (HB_HAVE_GOBJECT ON)
+#  set (HB_HAVE_GLIB ON)
+#endif ()
 
 include_directories(AFTER
   ${PROJECT_SOURCE_DIR}/src
@@ -194,23 +219,27 @@ set (project_headers ${HB_BASE_headers})
 set (subset_project_headers ${HB_SUBSET_headers})
 
 ## Find and include needed header folders and libraries
-if (HB_HAVE_FREETYPE AND NOT TARGET freetype)
-  include (FindFreetype)
-  if (NOT FREETYPE_FOUND)
-    message(FATAL_ERROR "HB_HAVE_FREETYPE was set, but we failed to find it. Maybe add a CMAKE_PREFIX_PATH= to your Freetype2 install prefix")
-  endif ()
-
-  list(APPEND THIRD_PARTY_LIBS ${FREETYPE_LIBRARIES})
-  include_directories(AFTER ${FREETYPE_INCLUDE_DIRS})
+#if (HB_HAVE_FREETYPE AND NOT TARGET freetype)
+#  include (FindFreetype)
+#  if (NOT FREETYPE_FOUND)
+#    message(FATAL_ERROR "HB_HAVE_FREETYPE was set, but we failed to find it. Maybe add a CMAKE_PREFIX_PATH= to your Freetype2 install prefix")
+#  endif ()
+#
+#  list(APPEND THIRD_PARTY_LIBS ${FREETYPE_LIBRARIES})
+#  include_directories(AFTER ${FREETYPE_INCLUDE_DIRS})
+#  add_definitions(-DHAVE_FREETYPE=1)
+#
+#  list(APPEND project_headers ${PROJECT_SOURCE_DIR}/src/hb-ft.h)
+#
+#  # So check_funcs can find its headers
+#  set (CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${FREETYPE_INCLUDE_DIRS})
+#  set (CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${FREETYPE_LIBRARIES})
+#
+#  check_funcs(FT_Get_Var_Blend_Coordinates FT_Set_Var_Blend_Coordinates FT_Done_MM_Var)
+#endif ()
+if (HB_HAVE_FREETYPE)
+  list(APPEND THIRD_PARTY_LIBS freetype.freetype)
   add_definitions(-DHAVE_FREETYPE=1)
-
-  list(APPEND project_headers ${PROJECT_SOURCE_DIR}/src/hb-ft.h)
-
-  # So check_funcs can find its headers
-  set (CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${FREETYPE_INCLUDE_DIRS})
-  set (CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES} ${FREETYPE_LIBRARIES})
-
-  check_funcs(FT_Get_Var_Blend_Coordinates FT_Set_Var_Blend_Coordinates FT_Done_MM_Var)
 endif ()
 
 if (HB_HAVE_FREETYPE)
@@ -258,21 +287,22 @@ endif ()
 
 if (HB_HAVE_ICU)
   add_definitions(-DHAVE_ICU)
+  list(APPEND THIRD_PARTY_LIBS icu.libsicuuc)
 
-  # https://github.com/WebKit/webkit/blob/fdd7733f2f30eab7fe096a9791f98c60f62f49c0/Source/cmake/FindICU.cmake
-  find_package(PkgConfig)
-  pkg_check_modules(PC_ICU QUIET icu-uc)
-
-  find_path(ICU_INCLUDE_DIR NAMES unicode/utypes.h HINTS ${PC_ICU_INCLUDE_DIRS} ${PC_ICU_INCLUDEDIR})
-  find_library(ICU_LIBRARY NAMES libicuuc cygicuuc cygicuuc32 icuuc HINTS ${PC_ICU_LIBRARY_DIRS} ${PC_ICU_LIBDIR})
-
-  include_directories(${ICU_INCLUDE_DIR})
-
-  list(APPEND project_headers ${PROJECT_SOURCE_DIR}/src/hb-icu.h)
-
-  list(APPEND THIRD_PARTY_LIBS ${ICU_LIBRARY})
-
-  mark_as_advanced(ICU_INCLUDE_DIR ICU_LIBRARY)
+#  # https://github.com/WebKit/webkit/blob/fdd7733f2f30eab7fe096a9791f98c60f62f49c0/Source/cmake/FindICU.cmake
+#  find_package(PkgConfig)
+#  pkg_check_modules(PC_ICU QUIET icu-uc)
+#
+#  find_path(ICU_INCLUDE_DIR NAMES unicode/utypes.h HINTS ${PC_ICU_INCLUDE_DIRS} ${PC_ICU_INCLUDEDIR})
+#  find_library(ICU_LIBRARY NAMES libicuuc cygicuuc cygicuuc32 icuuc HINTS ${PC_ICU_LIBRARY_DIRS} ${PC_ICU_LIBDIR})
+#
+#  include_directories(${ICU_INCLUDE_DIR})
+#
+#  list(APPEND project_headers ${PROJECT_SOURCE_DIR}/src/hb-icu.h)
+#
+#  list(APPEND THIRD_PARTY_LIBS ${ICU_LIBRARY})
+#
+#  mark_as_advanced(ICU_INCLUDE_DIR ICU_LIBRARY)
 endif ()
 
 if (APPLE AND HB_HAVE_CORETEXT)
@@ -447,38 +477,61 @@ endif ()
 
 
 ## Define harfbuzz library
-add_library(harfbuzz ${project_sources} ${project_extra_sources} ${project_headers})
-target_link_libraries(harfbuzz ${THIRD_PARTY_LIBS})
-target_include_directories(harfbuzz PUBLIC
+#add_library(harfbuzz ${project_sources} ${project_extra_sources} ${project_headers})
+#target_link_libraries(harfbuzz ${THIRD_PARTY_LIBS})
+#target_include_directories(harfbuzz PUBLIC
+#                           "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
+#                           "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/harfbuzz>")
+#if (HB_HAVE_FREETYPE AND TARGET freetype)
+#  target_link_libraries(harfbuzz freetype)
+#endif ()
+add_library(harfbuzz.harfbuzz STATIC ${project_sources} ${project_extra_sources} ${project_headers})
+target_link_libraries(harfbuzz.harfbuzz PRIVATE ${THIRD_PARTY_LIBS})
+target_include_directories(harfbuzz.harfbuzz PUBLIC
                            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>"
                            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/harfbuzz>")
-if (HB_HAVE_FREETYPE AND TARGET freetype)
-  target_link_libraries(harfbuzz freetype)
+if (HB_HAVE_FREETYPE AND TARGET freetype.freetype)
+  target_link_libraries(harfbuzz.harfbuzz PUBLIC freetype.freetype)
 endif ()
+set_target_properties(harfbuzz.harfbuzz PROPERTIES OUTPUT_NAME harfbuzz EXPORT_NAME harfbuzz)
+add_library(harfbuzz::harfbuzz ALIAS harfbuzz.harfbuzz)
 
 
 ## Define harfbuzz-icu library
 if (HB_HAVE_ICU)
-  add_library(harfbuzz-icu ${PROJECT_SOURCE_DIR}/src/hb-icu.cc ${PROJECT_SOURCE_DIR}/src/hb-icu.h)
-  add_dependencies(harfbuzz-icu harfbuzz)
-  target_link_libraries(harfbuzz-icu harfbuzz ${THIRD_PARTY_LIBS})
+#  add_library(harfbuzz-icu ${PROJECT_SOURCE_DIR}/src/hb-icu.cc ${PROJECT_SOURCE_DIR}/src/hb-icu.h)
+#  add_dependencies(harfbuzz-icu harfbuzz)
+#  target_link_libraries(harfbuzz-icu harfbuzz ${THIRD_PARTY_LIBS})
+#
+#  if (BUILD_SHARED_LIBS)
+#    set_target_properties(harfbuzz harfbuzz-icu PROPERTIES VISIBILITY_INLINES_HIDDEN TRUE)
+#  endif ()
+  add_library(harfbuzz.harfbuzz-icu STATIC ${PROJECT_SOURCE_DIR}/src/hb-icu.cc ${PROJECT_SOURCE_DIR}/src/hb-icu.h)
+  add_dependencies(harfbuzz.harfbuzz-icu harfbuzz.harfbuzz)
+  target_link_libraries(harfbuzz.harfbuzz-icu PUBLIC harfbuzz.harfbuzz PRIVATE ${THIRD_PARTY_LIBS})
 
-  if (BUILD_SHARED_LIBS)
-    set_target_properties(harfbuzz harfbuzz-icu PROPERTIES VISIBILITY_INLINES_HIDDEN TRUE)
-  endif ()
+  set_target_properties(harfbuzz.harfbuzz-icu PROPERTIES OUTPUT_NAME harfbuzz-icu EXPORT_NAME harfbuzz-icu)
+  add_library(harfbuzz::harfbuzz-icu ALIAS harfbuzz.harfbuzz-icu)
 endif ()
 
 
 ## Define harfbuzz-subset library
 if (HB_BUILD_SUBSET)
-  add_library(harfbuzz-subset ${subset_project_sources} ${subset_project_headers})
+#  add_library(harfbuzz-subset ${subset_project_sources} ${subset_project_headers})
+#  list(APPEND project_headers ${PROJECT_SOURCE_DIR}/src/hb-subset.h)
+#  add_dependencies(harfbuzz-subset harfbuzz)
+#  target_link_libraries(harfbuzz-subset harfbuzz ${THIRD_PARTY_LIBS})
+#
+#  if (BUILD_SHARED_LIBS)
+#    set_target_properties(harfbuzz harfbuzz-subset PROPERTIES VISIBILITY_INLINES_HIDDEN TRUE)
+#  endif ()
+  add_library(harfbuzz.harfbuzz-subset STATIC ${subset_project_sources} ${subset_project_headers})
   list(APPEND project_headers ${PROJECT_SOURCE_DIR}/src/hb-subset.h)
-  add_dependencies(harfbuzz-subset harfbuzz)
-  target_link_libraries(harfbuzz-subset harfbuzz ${THIRD_PARTY_LIBS})
+  add_dependencies(harfbuzz.harfbuzz-subset harfbuzz.harfbuzz)
+  target_link_libraries(harfbuzz.harfbuzz-subset PUBLIC harfbuzz.harfbuzz PRIVATE ${THIRD_PARTY_LIBS})
 
-  if (BUILD_SHARED_LIBS)
-    set_target_properties(harfbuzz harfbuzz-subset PROPERTIES VISIBILITY_INLINES_HIDDEN TRUE)
-  endif ()
+  set_target_properties(harfbuzz.harfbuzz-subset PROPERTIES OUTPUT_NAME harfbuzz-subset EXPORT_NAME harfbuzz-subset)
+  add_library(harfbuzz::harfbuzz-subset ALIAS harfbuzz.harfbuzz-subset)
 endif ()
 
 if (UNIX OR MINGW)
@@ -496,9 +549,11 @@ if (UNIX OR MINGW)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-rtti -fno-exceptions")
     set (CMAKE_CXX_IMPLICIT_LINK_LIBRARIES "m") # libm
     set (CMAKE_CXX_IMPLICIT_LINK_DIRECTORIES "")
-    set_target_properties(harfbuzz PROPERTIES LINKER_LANGUAGE C)
+#    set_target_properties(harfbuzz PROPERTIES LINKER_LANGUAGE C)
+    set_target_properties(harfbuzz.harfbuzz PROPERTIES LINKER_LANGUAGE C)
     if (HB_BUILD_SUBSET)
-      set_target_properties(harfbuzz-subset PROPERTIES LINKER_LANGUAGE C)
+#      set_target_properties(harfbuzz-subset PROPERTIES LINKER_LANGUAGE C)
+      set_target_properties(harfbuzz.harfbuzz-subset PROPERTIES LINKER_LANGUAGE C)
     endif ()
 
     # No threadsafe statics as we do it ourselves
@@ -531,9 +586,9 @@ if (HB_HAVE_GOBJECT)
   endif ()
 endif ()
 
-if (BUILD_SHARED_LIBS AND WIN32 AND NOT MINGW)
-  add_definitions("-DHB_DLL_EXPORT")
-endif ()
+#if (BUILD_SHARED_LIBS AND WIN32 AND NOT MINGW)
+#  add_definitions("-DHB_DLL_EXPORT")
+#endif ()
 
 # On Windows, g-ir-scanner requires a DLL build in order for it to work
 if (WIN32)
@@ -668,17 +723,17 @@ endif ()
 
 
 ## Additional framework build configs
-if (BUILD_FRAMEWORK)
-  set (CMAKE_MACOSX_RPATH ON)
-  set_target_properties(harfbuzz PROPERTIES
-    FRAMEWORK TRUE
-    PUBLIC_HEADER "${project_headers}"
-    XCODE_ATTRIBUTE_INSTALL_PATH "@rpath"
-  )
-  set (MACOSX_FRAMEWORK_IDENTIFIER "harfbuzz")
-  set (MACOSX_FRAMEWORK_SHORT_VERSION_STRING "${HB_VERSION}")
-  set (MACOSX_FRAMEWORK_BUNDLE_VERSION "${HB_VERSION}")
-endif ()
+#if (BUILD_FRAMEWORK)
+#  set (CMAKE_MACOSX_RPATH ON)
+#  set_target_properties(harfbuzz PROPERTIES
+#    FRAMEWORK TRUE
+#    PUBLIC_HEADER "${project_headers}"
+#    XCODE_ATTRIBUTE_INSTALL_PATH "@rpath"
+#  )
+#  set (MACOSX_FRAMEWORK_IDENTIFIER "harfbuzz")
+#  set (MACOSX_FRAMEWORK_SHORT_VERSION_STRING "${HB_VERSION}")
+#  set (MACOSX_FRAMEWORK_BUNDLE_VERSION "${HB_VERSION}")
+#endif ()
 
 
 ## Additional harfbuzz build artifacts
@@ -713,12 +768,12 @@ endif ()
 ## Install
 include (GNUInstallDirs)
 
-if (NOT SKIP_INSTALL_HEADERS AND NOT SKIP_INSTALL_ALL)
-  install(FILES ${project_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/harfbuzz)
-  if (HB_HAVE_GOBJECT)
-    install(FILES ${hb_gobject_headers} ${hb_gobject_gen_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/harfbuzz)
-  endif ()
-endif ()
+#if (NOT SKIP_INSTALL_HEADERS AND NOT SKIP_INSTALL_ALL)
+#  install(FILES ${project_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/harfbuzz)
+#  if (HB_HAVE_GOBJECT)
+#    install(FILES ${hb_gobject_headers} ${hb_gobject_gen_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/harfbuzz)
+#  endif ()
+#endif ()
 
 # get these variables in the required format
 list(REMOVE_DUPLICATES PC_REQUIRES_PRIV)
@@ -758,76 +813,92 @@ macro ( make_pkgconfig_pc_file name )
   )
 endmacro ( make_pkgconfig_pc_file )
 
-if (NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL)
-  install(TARGETS harfbuzz
-    EXPORT harfbuzzConfig
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    FRAMEWORK DESTINATION Library/Frameworks
-  )
-  make_pkgconfig_pc_file("harfbuzz")
-  install(EXPORT harfbuzzConfig
-      NAMESPACE harfbuzz::
-      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/harfbuzz
-  )
-  if (HB_HAVE_ICU)
-    install(TARGETS harfbuzz-icu
-      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-      FRAMEWORK DESTINATION Library/Frameworks
-    )
-    make_pkgconfig_pc_file("harfbuzz-icu")
-  endif ()
-  if (HB_BUILD_SUBSET)
-    install(TARGETS harfbuzz-subset
-      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    )
-    make_pkgconfig_pc_file("harfbuzz-subset")
-  endif ()
-  if (HB_BUILD_UTILS)
-    if (WIN32 AND BUILD_SHARED_LIBS)
-      install(TARGETS harfbuzz-subset
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-      )
-    endif ()
-    install(TARGETS hb-view
-      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-    install(TARGETS hb-subset
-      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-
-    install(TARGETS hb-shape
-      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-
-    install(TARGETS hb-ot-shape-closure
-      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-  endif ()
-  if (HB_HAVE_GOBJECT)
-    install(TARGETS harfbuzz-gobject
-      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    )
-    make_pkgconfig_pc_file("harfbuzz-gobject")
-    if (HB_HAVE_INTROSPECTION)
-      if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio*")
-        set (hb_libpath "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
-      else ()
-        set (hb_libpath "$<TARGET_FILE_DIR:harfbuzz-gobject>")
-      endif ()
-
-      install(FILES "${hb_libpath}/HarfBuzz-0.0.gir"
-        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/gir-1.0
-      )
-
-      install(FILES "${hb_libpath}/HarfBuzz-0.0.typelib"
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/girepository-1.0
-      )
-    endif ()
-  endif ()
-endif ()
+#if (NOT SKIP_INSTALL_LIBRARIES AND NOT SKIP_INSTALL_ALL)
+##  install(TARGETS harfbuzz
+##    EXPORT harfbuzzConfig
+##    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+##    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+##    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+##    FRAMEWORK DESTINATION Library/Frameworks
+##  )
+#  install(TARGETS harfbuzz.harfbuzz
+#    EXPORT harfbuzzConfig
+#    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#    FRAMEWORK DESTINATION Library/Frameworks
+#  )
+#  make_pkgconfig_pc_file("harfbuzz")
+#  install(EXPORT harfbuzzConfig
+#      NAMESPACE harfbuzz::
+#      DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/harfbuzz
+#  )
+#  if (HB_HAVE_ICU)
+##    install(TARGETS harfbuzz-icu
+##      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+##      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+##      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+##      FRAMEWORK DESTINATION Library/Frameworks
+##    )
+#    install(TARGETS harfbuzz.harfbuzz-icu
+#      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#      FRAMEWORK DESTINATION Library/Frameworks
+#    )
+#    make_pkgconfig_pc_file("harfbuzz-icu")
+#  endif ()
+#  if (HB_BUILD_SUBSET)
+##    install(TARGETS harfbuzz-subset
+##      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+##    )
+#    install(TARGETS harfbuzz.harfbuzz-subset
+#      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#    )
+#    make_pkgconfig_pc_file("harfbuzz-subset")
+#  endif ()
+#  if (HB_BUILD_UTILS)
+#    if (WIN32 AND BUILD_SHARED_LIBS)
+#      install(TARGETS harfbuzz-subset
+#        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#      )
+#    endif ()
+#    install(TARGETS hb-view
+#      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#    )
+#    install(TARGETS hb-subset
+#      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#    )
+#
+#    install(TARGETS hb-shape
+#      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#    )
+#
+#    install(TARGETS hb-ot-shape-closure
+#      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#    )
+#  endif ()
+#  if (HB_HAVE_GOBJECT)
+#    install(TARGETS harfbuzz-gobject
+#      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+#      RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+#    )
+#    make_pkgconfig_pc_file("harfbuzz-gobject")
+#    if (HB_HAVE_INTROSPECTION)
+#      if ("${CMAKE_GENERATOR}" MATCHES "Visual Studio*")
+#        set (hb_libpath "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
+#      else ()
+#        set (hb_libpath "$<TARGET_FILE_DIR:harfbuzz-gobject>")
+#      endif ()
+#
+#      install(FILES "${hb_libpath}/HarfBuzz-0.0.gir"
+#        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/gir-1.0
+#      )
+#
+#      install(FILES "${hb_libpath}/HarfBuzz-0.0.typelib"
+#        DESTINATION ${CMAKE_INSTALL_LIBDIR}/girepository-1.0
+#      )
+#    endif ()
+#  endif ()
+#endif ()
